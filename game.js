@@ -30,36 +30,51 @@ function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(x,y,w,h)}function 
 // Hero-only animation: all poses are drawn in Canvas, no external assets.
 function heroPath(points,fill,stroke='#0a101e',line=1.4){ctx.beginPath();ctx.moveTo(...points[0]);for(let i=1;i<points.length;i++)ctx.lineTo(...points[i]);ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.lineWidth=line;ctx.strokeStyle=stroke;ctx.stroke()}}
 function heroLine(points,color,width=2){ctx.beginPath();ctx.moveTo(...points[0]);for(let i=1;i<points.length;i++)ctx.lineTo(...points[i]);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke()}
-function drawHero(){if(!player)return;const p=player;const running=p.grounded&&Math.abs(p.vx)>38;const dashing=p.backDashTime>0;const attacking=p.attackTime>0;const ultimate=p.ultimateTime>0;const airborne=!p.grounded;const gait=running?Math.sin(clock*19):0;const bob=running?Math.abs(Math.sin(clock*19))*1.4:Math.sin(clock*2.7)*.6;const lean=dashing?-9:running?3:0;const capeWind=dashing?19:running?12:5;const capeWave=Math.sin(clock*11)*2;ctx.save();if(p.invuln>0&&Math.floor(clock*18)%2)ctx.globalAlpha=.52;ctx.translate(p.x+p.w/2,p.y+57+bob);ctx.scale(p.face,1);ctx.translate(0,-57);if(p.hitFlash>0)ctx.shadowColor='#ff9ba8',ctx.shadowBlur=11;
-// trailing scarf and layered coat tails, moving separately from the body
-heroPath([[-6,23],[-17-capeWind,22+capeWave],[-20-capeWind,31+capeWave],[-12,30]],'#f0f1f4','#b7bfcd');
-heroPath([[-7,25],[-15-capeWind,30],[-21-capeWind,53+capeWave],[-11,48],[-4,37]],'#141b2d','#8794a7');
-heroPath([[2,27],[-6-capeWind,36],[-12-capeWind,57+capeWave],[6,50],[10,33]],'#273047','#0a101e');
-heroLine([[-11,49],[-14-capeWind,55+capeWave]],'#b8c3d2',1);
-// legs, with running cycle and airborne silhouette
-const lf=airborne?-8:gait*8,rf=airborne?7:-gait*8;
-heroPath([[-7,42],[-7+lf*.45,52],[-9+lf,57],[-2+lf,57],[0,48],[0,42]],'#20283b');
-heroPath([[1,42],[2+rf*.45,52],[1+rf,57],[8+rf,57],[8,48],[7,42]],'#111827');
-heroLine([[-9+lf,56],[-2+lf,56]],'#c7ced8',2);heroLine([[1+rf,56],[8+rf,56]],'#c7ced8',2);
-// coat and waist
-heroPath([[-8+lean*.15,18],[7+lean*.15,18],[10+lean*.15,44],[0,47],[-10,43]],p.hitFlash?'#ad5366':'#263249');
-heroPath([[-2,19],[4,20],[3,43],[-2,44]],'#39445d',null);
-heroLine([[-9,39],[9,39]],'#c4b7a2',2);heroPath([[0,37],[4,37],[4,41],[0,41]],'#d5b67d',null);
-// rear arm
-heroLine([[-7,23],[-12+(running?gait*3:0),35]],'#1b2437',6);
-// head, white half-mask, dark hair and hat
-heroPath([[-10,3],[-9,-1],[8,-1],[11,6],[9,17],[-8,17]],'#e5e8ed','#8c9bac');
-heroPath([[-11,4],[-9,-3],[-5,-7],[8,-6],[12,-1],[10,5],[4,3],[-4,6]],'#151d30');
-heroPath([[-11,-4],[-9,-10],[8,-10],[11,-4]],'#202b40');heroLine([[-15,-4],[14,-4]],'#d9dde5',2.5);
-heroPath([[-9,7],[10,6],[10,13],[-9,13]],'#f3f3f0','#b7c1ce',.8);
-heroPath([[-8,9],[-1,8],[-2,11],[-8,11]],'#202b42',null);heroPath([[2,8],[9,8],[9,11],[3,11]],'#202b42',null);
-heroLine([[-3,16],[7,16]],'#d0a66f',1);
-// forward arm and sword: 3 distinct attack poses
-let hand=[12,32],tip=[39,27],guard=[18,29];if(attacking){const phase=p.combo===1?0:p.combo===2?1:2;hand=phase===0?[17,21]:phase===1?[20,36]:[18,15];guard=[hand[0]+5,hand[1]-3];tip=phase===0?[45,-9]:phase===1?[54,49]:[49,-17]}else if(ultimate){hand=[17,16];guard=[23,11];tip=[70,-24]}else if(dashing){hand=[17,20];guard=[22,17];tip=[46,8]}
-heroLine([[8,23],hand],'#26334b',6);heroLine([[8,23],hand],'#66758b',1);
-heroLine([hand,guard],'#d9dce4',3);heroLine([[guard[0]-4,guard[1]-4],[guard[0]+4,guard[1]+4]],'#d6b57d',3);
-heroLine([guard,tip],'#d8eaf4',3.2);heroLine([guard,tip],'#ffffff',1.1);
-ctx.restore()}
+// Character artwork extracted from the approved concept sheet.
+const heroImage = new Image();
+heroImage.src = 'assets/hero.png';
+function drawHero(){
+  if(!player)return;
+  const p=player;
+  const running=p.grounded&&Math.abs(p.vx)>38&&p.backDashTime<=0;
+  const dashing=p.backDashTime>0;
+  const attacking=p.attackTime>0;
+  const ultimate=p.ultimateTime>0;
+  const airborne=!p.grounded;
+  const step=running?Math.sin(clock*19):0;
+  const bob=running?Math.abs(step)*2:Math.sin(clock*3)*.8;
+  const lean=dashing?-0.24:running?.10:airborne?-.10:0;
+  const swordAngle=ultimate?-.95:attacking?(p.combo===2?.65:-1.05):-.28;
+  const footX=p.x+p.w/2,footY=p.y+p.h+bob;
+  ctx.save();
+  if(p.invuln>0&&Math.floor(clock*18)%2)ctx.globalAlpha=.55;
+  ctx.translate(footX,footY);
+  ctx.scale(p.face,1);
+  ctx.rotate(lean);
+  if(heroImage.complete&&heroImage.naturalWidth){
+    // Draw using the original character design; scale anchored at the feet.
+    const drawH=airborne?78:running?76:79;
+    const drawW=drawH*heroImage.naturalWidth/heroImage.naturalHeight;
+    ctx.drawImage(heroImage,-drawW/2,-drawH,drawW,drawH);
+    // Subtle leg movement silhouette overlay in running pose.
+    if(running){
+      ctx.strokeStyle='#171725';ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(-3,-13);ctx.lineTo(-5+step*6,-2);
+      ctx.moveTo(3,-13);ctx.lineTo(4-step*6,-2);ctx.stroke();
+    }
+    // Sword follows attack and ultimate actions.
+    ctx.save();ctx.translate(11,-38);ctx.rotate(swordAngle);
+    ctx.strokeStyle='#d2ac76';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-4,4);ctx.lineTo(5,-3);ctx.stroke();
+    ctx.strokeStyle='#f2f6ff';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(5,-3);ctx.lineTo(36,-23);ctx.stroke();
+    ctx.restore();
+  }else{
+    // Fallback if the image is not yet loaded.
+    ctx.fillStyle='#252338';ctx.fillRect(-10,-53,20,53);
+    ctx.fillStyle='#f1f0f5';ctx.fillRect(-8,-72,16,18);
+    ctx.fillStyle='#161724';ctx.fillRect(-18,-77,36,5);
+  }
+  ctx.restore();
+}
 function draw(){ctx.clearRect(0,0,W,H);ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake,shake));const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#101326');sky.addColorStop(1,'#25233a');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);ctx.fillStyle='#d5d5e8';ctx.globalAlpha=.8;ctx.beginPath();ctx.arc(765,90,33,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
 for(let i=0;i<18;i++){let x=i*65-15,h=randStatic(i)*105+105;rect(x,ground-h,54,h,'#171b2c');for(let j=0;j<5;j++){if((i+j)%3!==0)rect(x+12+j%2*23,ground-h+25+j*19,7,10,'#57516a')}}rect(0,ground,W,H-ground,'#282737');rect(0,ground,W,5,'#77718a');for(let i=0;i<12;i++)rect(i*92+20,ground+36,58,2,'#393746');
 for(const e of enemies){ctx.save();if(e.flash)ctx.globalAlpha=.6;rect(e.x+5,e.y+10,21,e.h-10,e.elite?'#9d5d69':'#59647e');rect(e.x+3,e.y,25,19,e.elite?'#c9a2a9':'#a1adc2');rect(e.x+(e.face===1?26:-12),e.y+23,13,4,'#e4c5b0');rect(e.x,e.y-11,30,5,'#3a344a');rect(e.x,e.y-11,30*clamp(e.hp/e.maxHp,0,1),5,'#dc8798');if(e.wind>0){ctx.strokeStyle='#ff657a';ctx.lineWidth=4;ctx.beginPath();ctx.arc(e.x+15,e.y+25,37,-1.2,1.2);ctx.stroke()}ctx.restore()}
